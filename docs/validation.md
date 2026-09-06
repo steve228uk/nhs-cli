@@ -10,7 +10,18 @@
 - A targeted scan reviewed 48 unique historical blobs across the two pre-release commits and 46 working files. No private-key, provider-token, JWT, non-example email, machine-home-path, or sensitive-artifact candidates were found. This scan is evidence for the release review, not proof that arbitrary secrets cannot exist.
 - Runtime and dependency behavior are preserved; native keyring versions and Linux libc selectors remain unchanged. Publication is enabled explicitly, with the one-time `0.0.1` bootstrap followed by the `publish.yml` OIDC workflow.
 
-The unscoped `nhs-cli` bootstrap was rejected by npm as too similar to another package. The maintainer approved `@steve228uk/nhs-cli`; executable names and storage identity remain unchanged. Hosted matrix and registry publication results will be recorded after those operations complete. Grokbot instructions follow the inspected iMessage repository's skill-write/ExternalShell contract; a real Grokbot session has not been exercised. No live NHS request was made during release preparation.
+The unscoped `nhs-cli` bootstrap was rejected by npm as too similar to another package. The maintainer approved `@steve228uk/nhs-cli`; executable names and storage identity remain unchanged. Grokbot instructions follow the inspected iMessage repository's skill-write/ExternalShell contract; a real Grokbot session has not been exercised. No live NHS request was made during release preparation.
+
+## Published release, 2026-09-06
+
+- `@steve228uk/nhs-cli@0.0.1` was published through the npm CLI as a three-file placeholder under the `bootstrap` tag. The repository is public. npm's verified trusted publisher points to `steve228uk/nhs-cli`, workflow `publish.yml`.
+- [Main-branch CI](https://github.com/steve228uk/nhs-cli/actions/runs/34049318083) passed all four macOS/Linux × Node 22/24 jobs, including native keyring tests and isolated package installation. The Linux jobs verified persistent Secret Service and its unavailable-service failure path.
+- [The v0.1.0 release workflow](https://github.com/steve228uk/nhs-cli/actions/runs/34049495789) passed version validation, repeated the four-platform matrix, and published the tested 30-file tarball using OIDC. npm reports `latest: 0.1.0` and `bootstrap: 0.0.1`.
+- The public npm SLSA provenance statement identifies repository `https://github.com/steve228uk/nhs-cli`, tag `v0.1.0`, workflow `.github/workflows/publish.yml`, and commit `c8bc89160a732e12f78895f43447821a9d007f7d`. Its [transparency-log entry](https://search.sigstore.dev/?logIndex=2741999134) was emitted by the publish job.
+- A fresh registry install via `npm run test:package -- @steve228uk/nhs-cli@0.1.0` passed: both executable names, version/help, the one NHS skill, installer file, and synthetic local diagnostics. Public registry metadata is now available; early bootstrap lookups had temporarily returned 404 despite successful publication.
+- The documented public tagged skill URL was installed successfully with the shared skills CLI into an isolated Codex project, updating the existing `nhs` skill. No user-global skill directory was changed. Grokbot's actual runtime remains untested; its installer contract and safety scenarios were reviewed independently.
+
+Release validation made no live NHS calls and read no real vault or credentials.
 
 ## Earlier implementation validation
 
