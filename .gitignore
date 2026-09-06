@@ -1,0 +1,12 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+node_modules/
+npm-debug.log*
+
+# Authentication and patient state must never be committed.
+.nhs-cli.json
+state.json
+*.credentials.json
+*.session.json
