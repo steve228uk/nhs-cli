@@ -10,3 +10,19 @@ npm-debug.log*
 state.json
 *.credentials.json
 *.session.json
+
+# Research artifacts and sensitive exports belong outside the repository.
+*.apk
+*.apks
+*.xapk
+*.apkm
+*.dex
+*.har
+*.enc
+operation.lock/
+.research/
+research-local/
+exports/
+*.tgz
+coverage/
+*.tsbuildinfo

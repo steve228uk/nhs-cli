@@ -1,0 +1,49 @@
+name: CI
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+        node: [22, 24]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run check
+      - run: npm test
+      - run: npm pack --dry-run
+      - name: Test macOS Keychain with an isolated synthetic entry
+        if: runner.os == 'macOS'
+        run: npm run test:keyring
+        env:
+          NHS_CLI_TEST_KEYRING: '1'
+      - name: Install Linux Secret Service
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y dbus-x11 gnome-keyring
+      - name: Test Linux persistent Secret Service
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          export XDG_DATA_HOME="$(mktemp -d)"
+          dbus-run-session -- bash -e -c '
+            printf "%s" "synthetic-ci-keyring-password" | gnome-keyring-daemon --unlock --components=secrets
+            NHS_CLI_TEST_KEYRING=1 npm run test:keyring
+          '
+
+# Deliberately no publishing, deployment, account secrets or live NHS tests.

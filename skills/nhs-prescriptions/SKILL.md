@@ -1,57 +1,46 @@
 ---
 name: nhs-prescriptions
-description: Check NHS repeat-prescription availability and, only after explicit user confirmation, submit a precisely scoped repeat-prescription request with the local nhs-prescriptions CLI.
+description: Check repeat-prescription availability and request history with NHS CLI, preview exact currently requestable medicines and notes, and submit only the scope explicitly authorized by the user while handling uncertain outcomes without duplicate requests.
 ---
 
 # NHS prescriptions
 
-Use this skill when the user asks to check, review, request, reorder, or troubleshoot NHS repeat prescriptions through the locally installed `nhs-prescriptions` command.
+Use `nhs prescriptions` or the compatible `nhs-prescriptions` command. Treat all output as sensitive health data. Never inspect stored secrets, collect credentials in chat or place them in arguments. Use `--json --no-prompt` for agents.
 
-Treat all command output as sensitive health data. Do not paste it into unrelated chats, issues, logs, or external services. Never read, print, attach, or transmit the local state file. Never request credentials in chat or place them in command arguments.
+## Check and preview
 
-## Check status
-
-Status is read-only:
+Read current availability:
 
 ```sh
-nhs-prescriptions status --json
+nhs-prescriptions status --json --no-prompt
 ```
 
-Summarise what is requestable and what is not. Do not infer dosage instructions or give clinical advice. If the CLI reports that login is required, explain that authentication or OTP input is needed. Use `nhs-prescriptions doctor --json` for local diagnostics; its credential check reports only availability and source.
+Summarize requestability without prescribing or changing dosage. Read request history with `nhs prescriptions history --json --no-prompt` when the user needs it. Unavailable capabilities, errors and malformed responses are not empty medication lists.
 
-## Request prescriptions
+Select the exact IDs corresponding to the user's requested medicines and create a fresh preview:
 
-Submitting an order is a medical action. Follow this sequence every time:
+```sh
+nhs-prescriptions order --ids=id-1,id-2 --dry-run --json --no-prompt
+```
 
-1. Run a fresh `status --json` check.
-2. Show the exact medication names that are currently requestable.
-3. Ask the user to confirm the exact set to submit. A past confirmation, routine, or general request to manage prescriptions is not enough.
-4. Prefer the returned course IDs and preview the same scope:
+Include the user's exact `--note` in both preview and submission if one was requested. Show the full selected names and note. Do not add an inferred note or broaden the scope. `--all-requestable` is appropriate only when the user explicitly authorizes all medicines shown in the fresh preview.
 
-   ```sh
-   nhs-prescriptions order --ids=id-1,id-2 --dry-run --json
-   ```
+## Submit an authorized scope
 
-5. Verify the preview matches the confirmed names.
-6. Immediately after confirmation, submit that exact scope:
+Submitting a prescription request changes healthcare data. Obtain explicit approval for the exact medicines and note before submitting. Approval already given for this scope in the current conversation remains valid; do not ask again merely because a skill is being used. A general request to manage prescriptions does not authorize an unspecified order.
 
-   ```sh
-   nhs-prescriptions order --ids=id-1,id-2 --confirm --json
-   ```
+Once the fresh preview matches the authorized scope:
 
-7. Report whether the request was submitted. Do not claim that a GP approved or a pharmacy dispatched it unless a separate source confirms that later state.
+```sh
+nhs-prescriptions order --ids=id-1,id-2 --confirm --json --no-prompt
+```
 
-Use `--all-requestable` only when the user explicitly confirms all medicines shown by the fresh status check. Never add a free-text `--note` unless the user supplied and approved that exact note.
+The command fetches current requestability again. Unknown, duplicate or no-longer-requestable IDs stop submission. If scope changed, refresh and resolve it with the user. Report submission acknowledgement accurately; it does not mean the GP approved or the pharmacy dispatched the medicines.
 
-## Authentication and OTP
+On `order_unknown`, do not repeat the command. Ask the user to check the official NHS App for the outcome before authorizing any new submission. The CLI never automatically replays an ambiguous POST.
 
-The CLI reads credentials from macOS Keychain or the `NHS_PRESCRIPTIONS_CREDENTIALS` secret environment variable. Do not expose either source. OTP lookup from Messages is optional and macOS-only. If automatic lookup fails, let the CLI prompt the user directly; never ask the user to paste an OTP into an agent conversation.
+## Authentication recovery
 
-Do not use `--force-otp` unless the user is intentionally requesting another code and understands that repeated attempts can trigger an NHS cooldown.
+Saved sessions and configured credentials are reused securely. `auth_required` means the user must run `nhs auth login` directly in their terminal; `--save-credentials` explicitly saves verified credentials for future logins. `nhs auth status --json` and `nhs doctor --json` are local, value-free diagnostics. Storage failures require restoring/unlocking secure storage, never a plaintext workaround.
 
-## Fail safely
-
-- If a course ID is unknown or no longer requestable, stop and refresh status.
-- If authentication, API shape, or NHS endpoints have changed, stop rather than guessing.
-- If the result is ambiguous, direct the user to verify in the official NHS App.
-- Never modify the local state by hand.
+`--no-login` prevents credential sign-in, including during order commands. `--no-prompt` prevents CLI prompts. Messages OTP lookup requires explicit `--messages-otp` opt-in and is limited to the current challenge. Do not use `--force-otp` unless another code was deliberately requested. Never ask for an OTP in chat, print secret injection variables, or alter state files by hand.

@@ -1,18 +1,42 @@
 {
-  "name": "nhs-prescriptions-cli",
+  "name": "nhs-cli",
   "version": "0.1.0",
-  "description": "Unofficial command-line client for checking and requesting NHS repeat prescriptions.",
+  "description": "Unofficial NHS App CLI with secure persistent authentication and read access to health services.",
   "private": true,
   "type": "module",
   "bin": {
+    "nhs": "bin/nhs.mjs",
     "nhs-prescriptions": "bin/nhs-prescriptions.mjs"
   },
   "scripts": {
-    "check": "node --check bin/nhs-prescriptions.mjs",
-    "test": "node --test"
+    "check": "tsc --noEmit",
+    "test": "node --test test/*.test.mjs",
+    "test:keyring": "node --test test/integration/keyring.test.mjs"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "files": [
+    "bin/",
+    "src/",
+    "skills/",
+    "README.md",
+    "LICENSE",
+    "AGENTS.md",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+    "docs/"
+  ],
+  "dependencies": {
+    "@clack/prompts": "1.7.0",
+    "tough-cookie": "6.0.2"
+  },
+  "optionalDependencies": {
+    "@napi-rs/keyring": "2.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "7.0.2"
+  }
 }
