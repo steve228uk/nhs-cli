@@ -2,6 +2,8 @@
 
 See `nhs --help`. Options accept `--name=value` or `--name value`; boolean flags cannot take values. Unknown/duplicate options fail. No secret has an argument flag.
 
+`--version` reports the installed package version. Both `nhs` and the legacy `nhs-prescriptions` executable use the same version and implementation. Install the single `nhs` agent skill using [INSTALL.md](../INSTALL.md). Error metadata is limited to integer HTTP `status` and string `capability`; arbitrary details cannot override the public error envelope.
+
 New reads return `{ok:true, resource, checkedAt, data}`. Data preserves documented upstream structure; the CLI does not interpret clinical results. Authentication fields are recursively removed. Empty lists require a valid response structure.
 
 Prescription status retains `{ok, checkedAt, summary, courses}`. Courses include `id`, `name`, `details`, `requestable`. Orders add `order`; previews contain IDs, names and the exact note. Only the observed HTTP 201 acknowledgement reports successful submission; unrecognized acknowledgements are uncertain.

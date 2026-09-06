@@ -173,6 +173,23 @@ test('redirect loops and long read throttles remain bounded', async () => {
   assert.equal(calls.length, 1);
 });
 
+test('read retries respect numeric, date, missing, and invalid cooldowns without retrying writes', async () => {
+  const now = Date.parse('2026-01-01T00:00:00Z');
+  for (const [retryAfter, expected] of [[undefined, [1000]], ['2', [2000]], ['Thu, 01 Jan 2026 00:00:03 GMT', [3000]], ['Wed, 31 Dec 2025 23:59:59 GMT', [0]], ['not-a-date', []], ['6', []]]) {
+    const headers = retryAfter === undefined ? {} : { 'retry-after': retryAfter };
+    const { auth, calls } = client((_call, count) => response({}, count === 1 ? 429 : 200, headers), { now: () => now });
+    const delays = []; auth.transport.pause = async ms => { delays.push(ms); };
+    const result = await auth.request('/v1/patient/demographics');
+    assert.deepEqual(delays, expected);
+    assert.equal(calls.length, expected.length + 1);
+    assert.equal(result.status, expected.length ? 200 : 429);
+  }
+  const { auth, calls } = client(() => response({}, 503, { 'retry-after': '1' }));
+  auth.transport.pause = async () => { throw new Error('writes must not retry'); };
+  assert.equal((await auth.request('/v1/patient/prescriptions', { method: 'POST', body: { CourseIds: ['synthetic-id'], SpecialRequest: '' } })).status, 503);
+  assert.equal(calls.length, 1);
+});
+
 test('rejected service bearer is renewed within the valid cookie session without password login', async () => {
   let reads = 0;
   const { auth, calls } = client(call => {

@@ -20,7 +20,10 @@ export function redact(value) {
 // Only our own constant messages and explicitly selected metadata reach output.
 export function errorPayload(error) {
   if (!(error instanceof NhsError)) return { ok: false, code: 'unexpected_error', message: 'Unexpected failure. Run nhs doctor to check local prerequisites.' };
-  return { ok: false, code: error.code, message: redact(error.message), ...error.details };
+  const details = {};
+  if (Number.isInteger(error.details?.status)) details.status = error.details.status;
+  if (typeof error.details?.capability === 'string') details.capability = error.details.capability;
+  return { ok: false, code: error.code, message: redact(error.message), ...details };
 }
 
 export function shape(condition, message = 'NHS returned an unsupported response structure.') {

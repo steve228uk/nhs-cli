@@ -6,6 +6,7 @@ import { NhsServices, positive } from './domains.mjs';
 import { readOtpFromMessages } from './otp.mjs';
 import { NhsError, errorPayload } from './errors.mjs';
 import { publicData, render, exportFile } from './output.mjs';
+import packageInfo from '../package.json' with { type: 'json' };
 
 export const HELP = `NHS CLI — unofficial NHS App client
 
@@ -69,6 +70,23 @@ export function parseArgs(argv, legacy = false) {
   return { group, verb, id, flags };
 }
 
+function commandSpecificOptions(group, verb) {
+  switch (group) {
+    case 'auth':
+      if (verb === 'login') return ['reauth', 'save-credentials', 'migrate-credentials'];
+      if (verb === 'logout') return ['forget'];
+      return [];
+    case 'prescriptions':
+      if (verb === 'order') return ['ids', 'all-requestable', 'confirm', 'dry-run', 'note'];
+      if (verb === 'history') return ['from'];
+      return [];
+    case 'results': return ['year'];
+    case 'messages': return ['source', 'index', 'count'];
+    case 'otp': return ['max-age-minutes'];
+    default: return [];
+  }
+}
+
 function validateCommand({ group, verb, id, flags }) {
   const verbs = { auth: ['login', 'status', 'logout'], prescriptions: ['list', 'history', 'order'], records: ['list'], results: ['list', 'get'], appointments: ['list', 'slots'], messages: ['list', 'get'], documents: ['list', 'get', 'download'], profile: [], pharmacy: [], doctor: [], capabilities: [], otp: [] };
   if (!Object.hasOwn(verbs, group)) throw new NhsError('usage', 'Unknown command. Use nhs --help.');
@@ -76,8 +94,7 @@ function validateCommand({ group, verb, id, flags }) {
   if (id && !['get', 'download'].includes(verb)) throw new NhsError('usage', 'This command does not accept an identifier.');
   if (['get', 'download'].includes(verb) && !id) throw new NhsError('usage', 'This command requires an identifier.');
   const allowed = new Set(['json', 'no-login', 'no-prompt', 'messages-otp', 'force-otp', 'debug', 'output']);
-  const specific = group === 'auth' ? verb === 'login' ? ['reauth', 'save-credentials', 'migrate-credentials'] : verb === 'logout' ? ['forget'] : [] : group === 'prescriptions' ? verb === 'order' ? ['ids', 'all-requestable', 'confirm', 'dry-run', 'note'] : verb === 'history' ? ['from'] : [] : group === 'results' ? ['year'] : group === 'messages' ? ['source', 'index', 'count'] : group === 'otp' ? ['max-age-minutes'] : [];
-  for (const key of specific) allowed.add(key);
+  for (const key of commandSpecificOptions(group, verb)) allowed.add(key);
   for (const key of flags.keys()) if (!allowed.has(key)) throw new NhsError('usage', 'An option is not supported for this command.');
   if (group === 'documents' && verb === 'download' && !flags.has('output')) throw new NhsError('usage', 'Document download requires --output pointing to a new file.');
   if (flags.has('no-login') && (flags.has('reauth') || flags.has('save-credentials'))) throw new NhsError('usage', '--no-login cannot be combined with --reauth or --save-credentials.');
@@ -150,7 +167,7 @@ export async function main(argv = process.argv.slice(2), legacy = false) {
   const ui = createUi({ enabled: interactive });
   try {
     const command = parseArgs(argv, legacy);
-    if (command.flags.has('version')) { process.stdout.write('0.1.0\n'); return; }
+    if (command.flags.has('version')) { process.stdout.write(`${packageInfo.version}\n`); return; }
     if (command.flags.has('help') || command.group === 'help') { process.stdout.write(HELP); return; }
     const payload = await execute(command, { ui });
     const login = command.group === 'auth' && command.verb === 'login';

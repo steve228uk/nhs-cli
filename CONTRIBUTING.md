@@ -8,4 +8,4 @@ Document new methods in `docs/api-research.md`: origin, parameters, capability r
 
 Native integration tests are opt-in: `NHS_CLI_TEST_KEYRING=1 npm run test:keyring`. They use a unique service and synthetic state. Linux tests must demonstrate Secret Service persistence and failure when unavailable. Dependency upgrades must recheck fallback behaviour before changing the pin.
 
-Before release work, inspect `npm pack --dry-run`, review staged files/history for accidental secrets and run the CI matrix. Keep publication disabled until explicitly requested.
+Before release work, run `npm run build` and `npm run test:package`, review staged files/history for accidental secrets and run the CI matrix. `bin/` is executable source; generated packages belong in ignored `dist/`. Releases require an explicit request and follow [the release runbook](docs/releasing.md), using GitHub Actions OIDC after the one-time bootstrap. Never add an npm publish token to CI.

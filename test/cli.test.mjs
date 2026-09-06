@@ -12,6 +12,7 @@ import { publicData, exportFile } from '../src/output.mjs';
 import { memoryStore, response, sessionData } from './helpers.mjs';
 import { Transport } from '../src/transport.mjs';
 import { VaultStore } from '../src/storage.mjs';
+import packageInfo from '../package.json' with { type: 'json' };
 
 const exec = promisify(execFile);
 test('legacy commands map to new command groups; bad flags fail before any I/O', () => {
@@ -34,6 +35,13 @@ test('native errors and protocol credentials never reach output, even with debug
   assert.deepEqual(publicData({ data: { name: 'Medicine A', token: 'synthetic-secret', nested: [{ authorization: 'synthetic-secret', text: 'message' }] } }), { data: { name: 'Medicine A', nested: [{ text: 'message' }] } });
 });
 
+test('error details preserve supported metadata without overriding the error envelope', () => {
+  const error = new NhsError('access_denied', 'NHS denied access.', { status: 403, capability: 'records', ok: true, code: 'secret-code', message: 'synthetic-secret', body: 'synthetic-secret' });
+  assert.deepEqual(errorPayload(error), { ok: false, code: 'access_denied', message: 'NHS denied access.', status: 403, capability: 'records' });
+  error.details = { status: 'synthetic-secret', capability: { token: 'synthetic-secret' } };
+  assert.deepEqual(errorPayload(error), { ok: false, code: 'access_denied', message: 'NHS denied access.' });
+});
+
 test('exports are private and never overwrite existing files', async t => {
   const directory = await mkdtemp(join(tmpdir(), 'nhs-export-test-')); t.after(() => rm(directory, { recursive: true, force: true }));
   const path = join(directory, 'export.json'); await exportFile(path, 'synthetic-data');
@@ -47,9 +55,9 @@ test('entrypoints work through installed-style symlinks and --version needs no k
   const target = new URL('../bin/nhs-prescriptions.mjs', import.meta.url).pathname;
   const link = join(directory, 'nhs-prescriptions'); await symlink(target, link);
   const version = await exec(process.execPath, [link, '--version']);
-  assert.equal(version.stdout.trim(), '0.1.0');
+  assert.equal(version.stdout.trim(), packageInfo.version);
   const modern = await exec(process.execPath, [new URL('../bin/nhs.mjs', import.meta.url).pathname, '--version']);
-  assert.equal(modern.stdout.trim(), '0.1.0');
+  assert.equal(modern.stdout.trim(), packageInfo.version);
 });
 
 test('order honours no-login and no-prompt without requesting credentials', async t => {

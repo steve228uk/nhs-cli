@@ -24,4 +24,4 @@ The presentation layer receives fixed authentication phase names, never credenti
 
 Dependencies are small: `@clack/prompts` provides the terminal UI; `tough-cookie` handles cookie scope; optional `@napi-rs/keyring` handles native storage; Node crypto/filesystem APIs implement the encrypted vault. TypeScript checks JavaScript without a build step. Tests inject external dependencies.
 
-The package allowlist includes runtime code, skills, docs and development/security guidance. Tests remain repository files. `private: true` blocks accidental publication.
+The package allowlist includes runtime code, one NHS skill, installation instructions, docs and development/security guidance. Tests and build scripts remain repository files. `npm run build` checks JavaScript and verifies the file list before retaining a tarball in ignored `dist/`. The executable `bin/` files remain tracked source. Tagged releases run the complete validation matrix before publishing via GitHub Actions OIDC; see [releasing](releasing.md).

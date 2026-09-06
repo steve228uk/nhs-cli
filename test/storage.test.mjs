@@ -65,9 +65,18 @@ test('unsafe files and symlinks are rejected', async t => {
 });
 
 test('concurrent operations serialize and errors release the lock', async t => {
-  const { directory } = await fixture(t); const events = [];
-  await Promise.all([withLock(directory, async () => { events.push('a'); await new Promise(resolve => setTimeout(resolve, 30)); events.push('b'); }), withLock(directory, async () => { events.push('c'); })]);
-  assert.deepEqual(events, ['a', 'b', 'c']);
+  const { directory } = await fixture(t);
+  let active = 0; let completed = 0;
+  const operation = () => withLock(directory, async () => {
+    active++;
+    try {
+      assert.equal(active, 1, 'only one operation may hold the lock');
+      await new Promise(resolve => setTimeout(resolve, 30));
+      completed++;
+    } finally { active--; }
+  });
+  await Promise.all([operation(), operation()]);
+  assert.equal(completed, 2);
   await assert.rejects(withLock(directory, async () => { throw new Error('fixture'); }));
   await withLock(directory, async () => {});
 });

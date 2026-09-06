@@ -28,18 +28,29 @@ export function buildStatusPayload(data) {
 }
 
 function capability(enabled, supported = true) {
-  return { status: enabled === false ? 'unavailable' : enabled === true && supported ? 'available' : 'unsupported', evidence: 'client-observed' };
+  let status = 'unsupported';
+  if (enabled === false) status = 'unavailable';
+  else if (enabled === true && supported) status = 'available';
+  return { status, evidence: 'client-observed' };
+}
+function providerCapability(provider) {
+  if (provider === 'none') return capability(false);
+  if (provider === 'im1') return capability(true);
+  return capability(undefined);
 }
 export function capabilitiesFrom(data) {
   shape(data?.journeys && typeof data.journeys === 'object' && !Array.isArray(data.journeys));
   const rules = data.journeys;
   const provider = name => rules[name]?.provider;
   const record = ['1', '2'].includes(String(rules.medicalRecord?.version));
+  let records = capability(undefined);
+  if (rules.medicalRecord?.version === null) records = capability(false);
+  else if (record) records = capability(true);
   return {
-    prescriptions: capability(provider('prescriptions') === 'none' ? false : provider('prescriptions') === 'im1' ? true : undefined),
-    records: capability(rules.medicalRecord?.version === null ? false : record ? true : undefined),
+    prescriptions: providerCapability(provider('prescriptions')),
+    records,
     results: capability(record && [null, '1', '2'].includes(rules.im1TestResults?.version) ? true : undefined),
-    appointments: capability(provider('appointments') === 'none' ? false : provider('appointments') === 'im1' ? true : undefined),
+    appointments: providerCapability(provider('appointments')),
     nhsMessages: capability(rules.messaging), gpMessages: capability(rules.im1Messaging?.isEnabled),
     pharmacy: capability(rules.nominatedPharmacy), documents: capability(rules.documents), profile: capability(true),
   };
@@ -48,9 +59,13 @@ export function capabilitiesFrom(data) {
 export class NhsServices {
   /** @param {import('./auth.mjs').AuthClient} auth */
   constructor(auth) { this.auth = auth; this.capabilities = null; }
+  /** @param {string} path @param {Parameters<import('./auth.mjs').AuthClient['read']>[1]} options */
+  async #readJson(path, options = {}) {
+    return jsonResponse(await this.auth.read(path, options));
+  }
   async discover() {
     if (!this.capabilities) {
-      const data = await jsonResponse(await this.auth.read('/v1/patient/journey-configuration'));
+      const data = await this.#readJson('/v1/patient/journey-configuration');
       this.capabilities = capabilitiesFrom(data);
     }
     return this.capabilities;
@@ -102,12 +117,12 @@ export class NhsServices {
     await this.require('prescriptions', true);
     const date = from ? new Date(from) : new Date(new Date().setMonth(new Date().getMonth() - 6));
     if (!Number.isFinite(date.getTime())) throw new NhsError('usage', '--from must be an ISO date.');
-    const data = await jsonResponse(await this.auth.read(`/v1/patient/prescriptions?${new URLSearchParams({ fromDate: date.toISOString() })}`, { gp: true }));
+    const data = await this.#readJson(`/v1/patient/prescriptions?${new URLSearchParams({ fromDate: date.toISOString() })}`, { gp: true });
     shape(Array.isArray(data?.prescriptions) && Array.isArray(data?.courses)); return data;
   }
   async record() {
     await this.require('records', true);
-    const data = await jsonResponse(await this.auth.read('/v1/patient/my-record', { gp: true }));
+    const data = await this.#readJson('/v1/patient/my-record', { gp: true });
     shape(data?.response && typeof data.response === 'object');
     if (data.response.hasSummaryRecordAccess === false && data.response.hasDetailedRecordAccess !== true) throw new NhsError('capability_unavailable', 'The GP has not enabled access to this medical record.');
     return data.response;
@@ -120,12 +135,12 @@ export class NhsServices {
     }
     if (year && (!/^\d{4}$/.test(String(year)) || Number(year) < 1900 || Number(year) > new Date().getFullYear())) throw new NhsError('usage', '--year must be a year between 1900 and the current year.');
     const path = id ? `/v1/patient/test-result?${new URLSearchParams({ testResultId: String(id) })}` : `/v1/patient/historic-test-results/${year}`;
-    const data = await jsonResponse(await this.auth.read(path, { gp: true }));
+    const data = await this.#readJson(path, { gp: true });
     shape(data?.response !== undefined); return data.response;
   }
   async appointments(slots = false) {
     await this.require('appointments', true);
-    const data = await jsonResponse(await this.auth.read(slots ? '/v1/patient/appointment-slots' : '/v1/patient/appointments', { gp: true }));
+    const data = await this.#readJson(slots ? '/v1/patient/appointment-slots' : '/v1/patient/appointments', { gp: true });
     shape(data && typeof data === 'object');
     if (!slots) shape(Array.isArray(data.upcomingAppointments) || Array.isArray(data.pastAppointments));
     else shape(Array.isArray(data.slots));
@@ -136,7 +151,7 @@ export class NhsServices {
     await this.require(source === 'nhs' ? 'nhsMessages' : 'gpMessages', source === 'gp');
     if (!Number.isSafeInteger(index) || index < 0 || index > 100000 || !Number.isInteger(count) || count < 1 || count > 100) throw new NhsError('usage', 'Message index must be 0–100000 and count 1–100.');
     const path = source === 'nhs' ? id ? `/v1/api/users/me/messages/${identifier(id)}` : `/v2/api/users/me/messages?${new URLSearchParams({ index: String(index), count: String(count) })}` : id ? `/v1/patient/messages/${identifier(id)}` : '/v1/patient/messages';
-    const data = await jsonResponse(await this.auth.read(path, { bearer: source === 'nhs', gp: source === 'gp' }));
+    const data = await this.#readJson(path, { bearer: source === 'nhs', gp: source === 'gp' });
     shape(data && typeof data === 'object');
     if (!id && source === 'nhs') shape(Array.isArray(data.messages) && typeof data.canLoadMore === 'boolean');
     if (!id && source === 'gp') shape(Array.isArray(data.messageSummaries));
@@ -144,24 +159,24 @@ export class NhsServices {
     return data;
   }
   async profile() {
-    const data = await jsonResponse(await this.auth.read('/v1/patient/demographics'));
+    const data = await this.#readJson('/v1/patient/demographics');
     shape(data && typeof data === 'object' && !Array.isArray(data)); return data;
   }
   async pharmacy() {
     await this.require('pharmacy');
-    const data = await jsonResponse(await this.auth.read('/v1/patient/nominated-pharmacy'));
+    const data = await this.#readJson('/v1/patient/nominated-pharmacy');
     shape(data === null || typeof data === 'object'); return data;
   }
   async documents(id = undefined, download = false) {
     await this.require('documents', true);
     if (!this.auth.nhsNumber || !/^\d{10}$/.test(this.auth.nhsNumber)) throw new NhsError('unsupported', 'NHS did not provide the own-account identifier required for document access.');
-    const list = await jsonResponse(await this.auth.read(`/v1/AccessDocuments/Patient/${this.auth.nhsNumber}/DocumentReference`, { origin: origins.gpconnect, gp: true }));
+    const list = await this.#readJson(`/v1/AccessDocuments/Patient/${this.auth.nhsNumber}/DocumentReference`, { origin: origins.gpconnect, gp: true });
     shape(Array.isArray(list?.patientDocuments));
     if (!id) return { documents: list.patientDocuments };
     const metadata = list.patientDocuments.find(doc => String(doc.id) === String(id));
     if (!metadata) throw new NhsError('not_found', 'That document is not in this account’s available document list.');
     if (!download) return metadata;
-    const data = await jsonResponse(await this.auth.read(`/v1/AccessDocuments/Download/${identifier(id)}`, { origin: origins.gpconnect, gp: true, headers: { Prefer: 'statuscode=200' } }));
+    const data = await this.#readJson(`/v1/AccessDocuments/Download/${identifier(id)}`, { origin: origins.gpconnect, gp: true, headers: { Prefer: 'statuscode=200' } });
     shape(typeof data?.content === 'string' && typeof data?.contentType === 'string');
     if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(data.content) || !data.content) throw new NhsError('invalid_response', 'Document content is missing or invalid base64.');
     return { content: Buffer.from(data.content, 'base64'), contentType: data.contentType, metadata };

@@ -7,6 +7,13 @@ import { resolveOtp } from './otp.mjs';
 
 const trust = ['P5.Cp.Cd', 'P5.Cp.Ck', 'P5.Cm', 'P9.Cp.Cd', 'P9.Cp.Ck', 'P9.Cm'];
 const accountDigest = email => createHash('sha256').update(email.trim().toLowerCase()).digest('hex');
+
+function retryDelaySeconds(retryAfter, attempt, now) {
+  if (!retryAfter) return attempt;
+  if (/^\d+$/.test(retryAfter)) return Number(retryAfter);
+  return Math.max(0, (Date.parse(retryAfter) - now()) / 1000);
+}
+
 export function buildAuthorizeUrl(challenge, nonce, state) {
   const url = new URL('/authorize', origins.authorize);
   Object.entries({ response_type: 'code', client_id: 'nhs-online', scope: 'openid profile email profile_extended gp_registration_details', vtr: JSON.stringify(trust), code_challenge: challenge, code_challenge_method: 'S256', redirect_uri: callback, nonce, state }).forEach(([key, value]) => url.searchParams.set(key, value));
@@ -55,7 +62,7 @@ export class AuthClient {
     if (typeof data.sessionTimeout === 'number' && data.sessionTimeout > 0) this.session.sessionTimeout = data.sessionTimeout;
     this.session.checkedAt = this.now();
   }
-  /** @param {string} path @param {{method?: string, body?: any, bearer?: boolean, origin?: string, retry?: boolean, headers?: Record<string,string>}} options */
+  /** @param {string} path @param {{method?: string, body?: import('./types.mjs').JsonValue, bearer?: boolean, origin?: string, retry?: boolean, headers?: Record<string,string>}} options */
   async request(path, { method = 'GET', body = undefined, bearer = false, origin = origins.api, retry = method === 'GET', headers = {} } = {}) {
     const attempts = retry ? 3 : 1;
     for (let attempt = 1; attempt <= attempts; attempt++) {
@@ -66,7 +73,7 @@ export class AuthClient {
       await this.persist();
       if ([429, 502, 503, 504, 598].includes(response.status) && attempt < attempts) {
         const retryAfter = response.headers.get('retry-after');
-        const seconds = retryAfter && /^\d+$/.test(retryAfter) ? Number(retryAfter) : retryAfter ? Math.max(0, (Date.parse(retryAfter) - this.now()) / 1000) : attempt;
+        const seconds = retryDelaySeconds(retryAfter, attempt, () => this.now());
         // Long server cooldowns are surfaced instead of blocking an agent indefinitely.
         if (!Number.isFinite(seconds) || seconds > 5) return response;
         await response.body?.cancel();
@@ -111,7 +118,7 @@ export class AuthClient {
     this.session.accessToken = data.token; await this.persist();
   }
   /** Only read operations may be retried after reauthentication. */
-  /** @param {string} path @param {{method?: string, body?: any, bearer?: boolean, gp?: boolean, origin?: string, headers?: Record<string,string>}} options */
+  /** @param {string} path @param {{method?: string, body?: import('./types.mjs').JsonValue, bearer?: boolean, gp?: boolean, origin?: string, headers?: Record<string,string>}} options */
   async read(path, { bearer = false, gp = false, method = 'GET', body = undefined, origin = origins.api, headers = {} } = {}) {
     try {
       if (bearer) await this.ensureBearer();

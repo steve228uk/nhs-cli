@@ -1,11 +1,13 @@
 ---
 name: nhs
-description: Use the local NHS CLI to read NHS App prescriptions, GP records, results, appointments, NHS or GP inboxes, account details, nominated pharmacy and document metadata; handle secure login recovery and explicit exports without exposing credentials or changing healthcare data.
+description: Use NHS CLI for NHS App records, medicines, results, appointments, messages and documents; recover secure login, export requested data, and submit only explicitly authorized repeat-prescription requests.
 ---
 
 # NHS CLI usage
 
 Use `nhs --help` to check the installed commands. Use `--json --no-prompt` for agent calls. All clinical output is sensitive: show only what the user needs for this task. Never send it to unrelated tools, logs, issues or third-party services. Do not infer clinical advice from results.
+
+Run the CLI on the user's configured computer, where their secure login is stored. In Grokbot, use `ExternalShell` on the user's Mac, never Grokbot's own hosted computer. If local execution is unavailable, direct the user to [Local execution](grokbot://app/v1/settings?id=local-execution). For missing CLI/skill setup, follow [the installer](https://github.com/steve228uk/nhs-cli/blob/main/INSTALL.md). Do not create a teammate or schedule health-data reads during setup.
 
 ## Authentication
 
@@ -14,6 +16,8 @@ Run `nhs auth status --json` for local saved-material status. It does not authen
 For `auth_required`, arrange for the user to run `nhs auth login` in their terminal. Clack shows email and OTP entry and masks the password; prompts require terminal stdin and stderr. `auth_cancelled` means the user cancelled or closed input; do not retry automatically. `--save-credentials` explicitly persists verified credentials; `--reauth` deliberately signs in again. Never collect passwords, email credentials, OTPs or encryption keys in chat or arguments. Never inspect a vault, Keychain entry or secret environment variable. Do not generate a replacement key to work around a missing key.
 
 Storage errors require unlocking/configuring the keyring or restoring the separately injected headless key. There is no plaintext fallback. `--messages-otp` is opt-in, macOS-only and limited to NHS messages after the current challenge. Do not add it without authorization. Do not bypass OTP cooldowns unless another code was intentionally requested.
+
+For NHS login, use the CLI's terminal entry or its explicitly authorized `--messages-otp` flow even when another iMessage skill is installed. Do not use a general OTP skill's paste-in-chat fallback or message-deletion routine. If terminal interaction is unavailable, have the user open their own terminal; do not attempt to collect or forward login secrets through agent tools.
 
 ## Read the requested data
 
@@ -43,6 +47,28 @@ New reads have `{ok, resource, checkedAt, data}`; prescriptions retain `{ok, che
 
 Persist health data only when an export/download was requested. Use `--output=<new-file>`; document downloads require `nhs documents download <returned-id> --output=<new-file>`. Choose the user's destination and explain that the exported file contains sensitive information. Existing files are never overwritten.
 
-For prescription submissions, read the sibling `nhs-prescriptions` skill. Exact user-authorized scope and a fresh preview are required. Existing explicit authorization in the current conversation counts; do not ask the same question twice. The CLI does not support new healthcare writes, proxy switching or external portal integrations.
-
 Logout only when requested. `nhs auth logout` clears session/device material; `--forget` additionally removes CLI-managed credentials. Neither is a routine troubleshooting step because both remove useful saved state.
+
+## Repeat-prescription requests
+
+Read current medicines with `nhs prescriptions list --json --no-prompt`. Select the exact returned IDs matching the user's requested medicines, then create a fresh preview:
+
+```sh
+nhs prescriptions order --ids=id-1,id-2 --dry-run --json --no-prompt
+```
+
+Show the full selected names and the user's exact note. Include the same `--note` in both preview and submission when supplied; never infer a note, change dosage, or broaden the selection. Use `--all-requestable` only when the user explicitly authorizes all medicines shown in the fresh preview.
+
+Submitting a request changes healthcare data. Require explicit authorization for the exact medicines and note. Existing authorization for that scope in the current conversation remains valid; do not ask again merely because this skill is active. A general request to manage prescriptions does not authorize an unspecified order.
+
+Once the preview matches the authorized scope:
+
+```sh
+nhs prescriptions order --ids=id-1,id-2 --confirm --json --no-prompt
+```
+
+The command checks current requestability again. Unknown, duplicate, or unavailable IDs stop submission. If scope changes, refresh the preview and resolve the changed scope with the user. Report acknowledgement as a submitted request, not GP approval or pharmacy dispatch.
+
+On `order_unknown`, do not retry. Have the user check the official NHS App before authorizing a new submission. The CLI never automatically repeats an ambiguous submission. The compatible `nhs-prescriptions` entrypoint remains available, but no separate skill is needed.
+
+Other healthcare writes, patient switching and third-party portal integrations are unsupported. Message reads omit read-status updates; do not add them through another tool.

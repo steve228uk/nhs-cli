@@ -5,6 +5,7 @@ This unofficial client handles authentication secrets and health information. Re
 ## Development
 
 - Use Node 22 or 24, JavaScript ESM and checked JSDoc. Run `npm ci`, `npm run check`, and `npm test`.
+- `npm run build` checks types and packs the reviewed file allowlist into `dist/`; `npm run test:package` verifies an isolated install. Keep `bin/` tracked: it contains executable source.
 - Native storage tests are opt-in: `NHS_CLI_TEST_KEYRING=1 npm run test:keyring` creates and removes an isolated synthetic OS keyring entry. Linux requires persistent Secret Service.
 - Keep credentials, cookies, patient identifiers, APKs, decompiled code, HARs and live responses out of the repository. Fixtures must be synthetic. Never inspect a user's vault or retrieve their credentials to debug code.
 - Unit tests inject transports, clocks and stores. They must never contact NHS. Live smoke tests require an explicit request naming the operation; do not include clinical writes.
@@ -22,4 +23,4 @@ This unofficial client handles authentication secrets and health information. Re
 - Prescription submission requires explicit user authorization for the exact scope. Respect existing session authorization instead of asking repeatedly. Still require `--confirm`, validate current requestability and never retry ambiguous submissions.
 - Output is health data. Diagnostics must not include raw native/upstream errors or bodies, even under `--debug`.
 
-Keep `private: true`. Inspect package contents before publication work. Do not publish, push, or alter account credentials during routine validation. Update command docs and repository skills with behaviour changes.
+The package is public and publishable. Releases require an explicit release request; follow `docs/releasing.md`, inspect package contents and repository history, and use GitHub Actions OIDC for version-tag releases. The initial `0.0.1` bootstrap is the documented CLI-published exception. Do not publish, push, or alter account credentials during routine validation. Update command docs and the single `skills/nhs/SKILL.md` with behaviour changes. Agent setup lives in `INSTALL.md`; Grokbot runs the CLI on the user's Mac through ExternalShell and saves the same skill through skill-write.

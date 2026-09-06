@@ -2,26 +2,50 @@
 
 An unofficial CLI for NHS App services, with securely saved login state and commands for prescriptions, GP records, results, appointments, messages, profiles, pharmacies and documents.
 
+The npm package is `@steve228uk/nhs-cli`; the command is `nhs`.
+
 This experimental client uses undocumented endpoints and is not affiliated with or endorsed by the NHS. Availability depends on your account and GP provider. Secure login, cross-process session reuse, capability discovery and current medicines have passed live checks. Other read adapters are based on the public client and synthetic tests; they still need account verification. Confirm important information in the official NHS App.
 
-## Install
+## Quick install
 
 Use Node.js 22 or 24 on macOS or Linux:
 
 ```sh
-npm ci
-npm link
+npm install --global @steve228uk/nhs-cli@0.1.0
+nhs --version
 nhs doctor --json
+nhs auth login
+nhs auth status --json
 ```
 
 macOS uses Keychain. Desktop Linux needs an unlocked Secret Service provider such as GNOME Keyring, session D-Bus, and the `@napi-rs/keyring` optional dependency. Unavailable secure storage stops the CLI; it never silently saves a plaintext session.
 
-## Save your login
+### Give this prompt to your agent
+
+> Install NHS CLI from https://github.com/steve228uk/nhs-cli. Follow INSTALL.md to install the CLI and NHS skill for this agent, then walk me through secure terminal login.
+
+[The installer](INSTALL.md) supports local coding agents and **Grokbot**. Grokbot saves the same NHS skill using skill-write and runs the CLI on your Mac through local execution. It never installs or logs in on its own hosted computer. Passwords and OTPs stay in your terminal, including when an iMessage skill is installed.
+
+### Install the agent skill yourself
+
+One `nhs` skill covers reads, login recovery, exports, and explicitly authorized repeat-prescription requests. With the [skills CLI](https://github.com/vercel-labs/skills), select your agent:
+
+```sh
+# Codex; use claude-code or cursor for those agents.
+npx skills add https://github.com/steve228uk/nhs-cli/tree/v0.1.0/skills/nhs --skill nhs --global --agent codex --yes
+```
+
+For another runtime, copy the `nhs` folder from `$(npm root --global)/@steve228uk/nhs-cli/skills/nhs` into its documented skills directory. Grokbot users should use the prompt above. The old separate prescription skill is now part of `nhs`; the legacy CLI command remains supported.
+
+The `0.0.1` bootstrap package is a placeholder, not a usable CLI. If `0.1.0` is not yet available, use the development build below or wait for the release.
+
+## Secure login
+
+Ordinary login saves an encrypted session. To also save verified credentials for future sign-ins, explicitly choose:
 
 ```sh
 nhs auth login --save-credentials
 nhs auth status --json
-nhs prescriptions list
 ```
 
 Login uses Clack terminal prompts: email and NHS security codes are visible; the password is masked. Progress explains each login stage. Prompts use terminal stderr, keeping JSON on stdout separate. Use `--no-prompt` for unattended calls. `--save-credentials` encrypts verified credentials for reuse. Ordinary commands reuse sessions first and can sign in again using saved credentials and remembered-device state. NHS may still require another code or a full login.
@@ -85,7 +109,7 @@ nhs prescriptions list --no-login --no-prompt --json
 
 `--messages-otp` opts into macOS Messages lookup, limited to NHS messages received after the current challenge. It needs Messages access and `sqlite3`. Lookup can fall back to terminal entry unless `--no-prompt` is set. `--force-otp` overrides only the local ten-minute SMS cooldown, not NHS limits.
 
-Copy the [general NHS skill](skills/nhs/SKILL.md) and [prescription skill](skills/nhs-prescriptions/SKILL.md) into your agent's skill directory. Neither includes account data or credentials.
+The [NHS skill](skills/nhs/SKILL.md) includes these authentication rules and prescription authorization guidance. It contains no account data or credentials.
 
 ## Migration
 
@@ -102,10 +126,19 @@ nhs auth login --migrate-credentials
 To map remaining API variants using the official app, see the [Android runtime network-inspection workflow](docs/android-network-inspection.md) and [API observation template](docs/api-observation-template.md).
 
 ```sh
-npm run check
+npm ci
+npm run build
 npm test
-npm pack --dry-run
+npm run test:package
 NHS_CLI_TEST_KEYRING=1 npm run test:keyring
 ```
 
-Tests use synthetic data, never NHS services. The opt-in native test creates and deletes a unique test entry. See [architecture](docs/architecture.md), [API research](docs/api-research.md), [validation and remaining checks](docs/validation.md), [contributing](CONTRIBUTING.md), [security](SECURITY.md), and [AGENTS.md](AGENTS.md). Publication remains disabled.
+`build` checks JavaScript/JSDoc and creates `dist/steve228uk-nhs-cli-0.1.0.tgz` with a verified package file list. JavaScript runs directly; there is no transpilation step. `test:package` installs that tarball into a temporary prefix and checks both executables and synthetic local diagnostics. To install your reviewed local build for normal use:
+
+```sh
+npm install --global ./dist/steve228uk-nhs-cli-0.1.0.tgz
+```
+
+Tests use synthetic data, never NHS services. The opt-in native test creates and deletes a unique test entry. See [architecture](docs/architecture.md), [API research](docs/api-research.md), [validation and remaining checks](docs/validation.md), [contributing](CONTRIBUTING.md), [security](SECURITY.md), and [AGENTS.md](AGENTS.md).
+
+Releases use version tags and GitHub Actions OIDC after the one-time npm bootstrap. See [the release runbook](docs/releasing.md). Installing the package never runs login or installs agent skills automatically.

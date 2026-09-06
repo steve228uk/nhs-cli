@@ -1,0 +1,68 @@
+name: Publish npm package
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: npm-release
+  cancel-in-progress: false
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Validate release tag and package metadata
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import pkg from './package.json' with { type: 'json' };
+          import lock from './package-lock.json' with { type: 'json' };
+          assert.match(process.env.GITHUB_REF_NAME, /^v\d+\.\d+\.\d+$/);
+          assert.equal(process.env.GITHUB_REF_NAME, `v${pkg.version}`);
+          assert.equal(pkg.name, '@steve228uk/nhs-cli');
+          assert.equal(pkg.private, undefined);
+          assert.equal(lock.version, pkg.version);
+          assert.equal(lock.packages[''].version, pkg.version);
+          assert.equal(pkg.repository.url, 'git+https://github.com/steve228uk/nhs-cli.git');
+          NODE
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+
+  test:
+    needs: version
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org/
+          package-manager-cache: false
+      - run: npm install --global npm@11.19.1
+      - run: npm ci --ignore-scripts
+      - run: npm run build
+      - run: npm run test:package
+      - name: Publish the verified tarball using npm OIDC
+        run: npm publish ./dist/*.tgz --access public --provenance --tag latest

@@ -1,5 +1,21 @@
 # Validation record
 
+## Release preparation, 2026-09-06
+
+- Node 22.22.3/macOS: checked JavaScript/JSDoc and all 75 synthetic tests pass. The previously flaky lock test now checks mutual exclusion without assuming caller scheduling order. New regressions cover retry cooldowns, capability states, and error metadata filtering.
+- `npm run build` produces a 30-file tarball containing executable source, the single NHS skill, installation instructions, license and docs. `npm run test:package` passes for both executable names and synthetic encrypted-file diagnostics in an isolated installation.
+- The opt-in native Keychain test passes, including persistence in a separate process and cleanup of its unique synthetic entry. No real NHS vault or account credentials were inspected.
+- The consolidated `nhs` skill passes the skill-creator validator. A real shared-skills CLI installation into an isolated temporary Codex project succeeds and copies the canonical file unchanged.
+- Independent instruction walkthroughs cover missing Grokbot local execution, fresh and existing installations, terminal-only OTP handling, existing prescription authorization, and uncertain submission outcomes. The locking regression passes 20 additional focused runs.
+- A targeted scan reviewed 48 unique historical blobs across the two pre-release commits and 46 working files. No private-key, provider-token, JWT, non-example email, machine-home-path, or sensitive-artifact candidates were found. This scan is evidence for the release review, not proof that arbitrary secrets cannot exist.
+- Runtime and dependency behavior are preserved; native keyring versions and Linux libc selectors remain unchanged. Publication is enabled explicitly, with the one-time `0.0.1` bootstrap followed by the `publish.yml` OIDC workflow.
+
+The unscoped `nhs-cli` bootstrap was rejected by npm as too similar to another package. The maintainer approved `@steve228uk/nhs-cli`; executable names and storage identity remain unchanged. Hosted matrix and registry publication results will be recorded after those operations complete. Grokbot instructions follow the inspected iMessage repository's skill-write/ExternalShell contract; a real Grokbot session has not been exercised. No live NHS request was made during release preparation.
+
+## Earlier implementation validation
+
+The following records describe checks before release preparation, when two skills and the private-package guard were still present. They are retained as historical evidence, including the earlier explicitly scoped live checks.
+
 Implementation checks on macOS, 2026-09-06:
 
 - `npm run check`: checked JavaScript/JSDoc passes.

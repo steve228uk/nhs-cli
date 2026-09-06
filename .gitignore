@@ -26,3 +26,11 @@ exports/
 *.tgz
 coverage/
 *.tsbuildinfo
+
+# Generated packages and local tool caches; bin/ contains executable source.
+dist/
+.cache/
+.npm/
+*.log
+*.swp
+*.swo

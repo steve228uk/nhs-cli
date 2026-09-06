@@ -59,6 +59,22 @@ test('capabilities distinguish disabled from unsupported providers', () => {
   assert.equal(capabilities.nhsMessages.status, 'unavailable');
 });
 
+test('provider and record capabilities preserve available, disabled, and unknown states', () => {
+  for (const [provider, expected] of [['im1', 'available'], ['none', 'unavailable'], ['gpc', 'unsupported'], [undefined, 'unsupported']]) {
+    const data = structuredClone(journeys);
+    data.journeys.prescriptions.provider = provider;
+    data.journeys.appointments.provider = provider;
+    const capabilities = capabilitiesFrom(data);
+    assert.equal(capabilities.prescriptions.status, expected);
+    assert.equal(capabilities.appointments.status, expected);
+  }
+  for (const [version, expected] of [[1, 'available'], ['2', 'available'], [null, 'unavailable'], [undefined, 'unsupported'], ['3', 'unsupported']]) {
+    const data = structuredClone(journeys);
+    data.journeys.medicalRecord.version = version;
+    assert.equal(capabilitiesFrom(data).records.status, expected);
+  }
+});
+
 test('disabled capabilities are enforced before resource access', async () => {
   const data = structuredClone(journeys); data.journeys.messaging = false;
   const { auth, calls } = client(() => response(data));

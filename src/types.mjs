@@ -1,4 +1,5 @@
 /**
+ * @typedef {null | boolean | number | string | JsonValue[] | {[key: string]: JsonValue}} JsonValue
  * @typedef {{email: string, password: string}} Credentials
  * @typedef {{csrfToken?: string, patientId?: string, sessionId?: string,
  * sessionExpiry?: string, accessToken?: string, rememberMyDevice?: string,

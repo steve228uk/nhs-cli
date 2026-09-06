@@ -1,8 +1,19 @@
 {
-  "name": "nhs-cli",
+  "name": "@steve228uk/nhs-cli",
   "version": "0.1.0",
   "description": "Unofficial NHS App CLI with secure persistent authentication and read access to health services.",
-  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/steve228uk/nhs-cli.git"
+  },
+  "homepage": "https://github.com/steve228uk/nhs-cli#readme",
+  "bugs": {
+    "url": "https://github.com/steve228uk/nhs-cli/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "type": "module",
   "bin": {
     "nhs": "bin/nhs.mjs",
@@ -10,7 +21,9 @@
   },
   "scripts": {
     "check": "tsc --noEmit",
+    "build": "npm run check && node scripts/build.mjs",
     "test": "node --test test/*.test.mjs",
+    "test:package": "node scripts/test-package.mjs",
     "test:keyring": "node --test test/integration/keyring.test.mjs"
   },
   "engines": {
@@ -22,6 +35,7 @@
     "src/",
     "skills/",
     "README.md",
+    "INSTALL.md",
     "LICENSE",
     "AGENTS.md",
     "CONTRIBUTING.md",
